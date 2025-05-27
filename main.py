@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 from database import init_db, save_detection, get_all_detections
+import torch
 
 # Type hints for OpenCV
 cv2.imdecode: Any
@@ -15,9 +16,11 @@ app = FastAPI(title="STICY API")
 # Initialize the database
 init_db()
 
-# Load the YOLO model with CPU device
+# Load the YOLO model
 model = YOLO('Models/best.pt')
-model.to('cpu')  # Force CPU usage
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+model.to(device)
+print(f"Model running on: {model.device}")
 
 # Class names
 clsName = ['Metal', 'Glass', 'Plastic', 'Carton', 'Medical']
@@ -87,4 +90,9 @@ async def get_detections():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        access_log=True
+    )
