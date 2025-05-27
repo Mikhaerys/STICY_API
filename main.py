@@ -4,8 +4,9 @@ from fastapi.responses import JSONResponse
 import cv2
 import numpy as np
 from ultralytics import YOLO
-from database import init_db, save_detection, get_all_detections
+from database import init_db, save_detection, get_all_detections, get_last_detection, update_bin_status, get_bins_status
 import torch
+from pydantic import BaseModel
 
 # Type hints for OpenCV
 cv2.imdecode: Any
@@ -24,6 +25,11 @@ print(f"Model running on: {model.device}")
 
 # Class names
 clsName = ['Metal', 'Glass', 'Plastic', 'Carton', 'Medical']
+
+
+class BinStatus(BaseModel):
+    bin_type: str
+    is_full: bool
 
 
 @app.post("/detect-waste/")
@@ -87,6 +93,59 @@ async def get_detections():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/last-detection/")
+async def get_last_detection_endpoint():
+    try:
+        detection = get_last_detection()
+        if not detection:
+            return JSONResponse(
+                content={"message": "No detections found"},
+                status_code=200
+            )
+        return {
+            "id": detection[0],
+            "waste_type": detection[1],
+            "confidence": detection[2],
+            "detection_date": detection[3]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/update-bin-status/")
+async def update_bin_status_endpoint(bin_status: BinStatus):
+    try:
+        if bin_status.bin_type not in ['Plastic', 'Paper', 'Medical']:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid bin type. Must be one of: Plastic, Paper, Medical"
+            )
+        update_bin_status(bin_status.bin_type, bin_status.is_full)
+        return {"message": f"Bin status updated successfully for {bin_status.bin_type}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/bins-status/")
+async def get_bins_status_endpoint():
+    try:
+        bins = get_bins_status()
+        return {
+            "bins": [
+                {
+                    "id": b[0],
+                    "bin_type": b[1],
+                    "is_full": b[2],
+                    "last_updated": b[3]
+                }
+                for b in bins
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn
