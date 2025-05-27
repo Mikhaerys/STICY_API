@@ -1,10 +1,13 @@
 import sqlite3
 from datetime import datetime
 
+# Initialize the SQLite database and create tables if they do not exist
+
 
 def init_db():
     conn = sqlite3.connect('waste_detection.db')
     c = conn.cursor()
+    # Table for waste detection records
     c.execute('''
         CREATE TABLE IF NOT EXISTS detections (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,7 +17,7 @@ def init_db():
         )
     ''')
 
-    # Create table for waste bins status
+    # Table for waste bins status
     c.execute('''
         CREATE TABLE IF NOT EXISTS waste_bins (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,6 +43,8 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Save a new waste detection record to the database
+
 
 def save_detection(waste_type: str, confidence: float):
     conn = sqlite3.connect('waste_detection.db')
@@ -51,6 +56,8 @@ def save_detection(waste_type: str, confidence: float):
     conn.commit()
     conn.close()
 
+# Retrieve all waste detection records, ordered by most recent
+
 
 def get_all_detections():
     conn = sqlite3.connect('waste_detection.db')
@@ -60,6 +67,8 @@ def get_all_detections():
     conn.close()
     return detections
 
+# Retrieve the most recent waste detection record
+
 
 def get_last_detection():
     conn = sqlite3.connect('waste_detection.db')
@@ -68,6 +77,8 @@ def get_last_detection():
     detection = c.fetchone()
     conn.close()
     return detection
+
+# Update the status of a specific waste bin
 
 
 def update_bin_status(bin_type: str, is_full: bool):
@@ -80,6 +91,8 @@ def update_bin_status(bin_type: str, is_full: bool):
     ''', (is_full, datetime.now(), bin_type))
     conn.commit()
     conn.close()
+
+# Retrieve the status of all waste bins
 
 
 def get_bins_status():

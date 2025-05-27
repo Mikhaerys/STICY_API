@@ -1,0 +1,168 @@
+/* =========================
+   Animations
+   ========================= */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* =========================
+   Base Layout and Body
+   ========================= */
+body {
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* =========================
+   Main Container
+   ========================= */
+.main-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    flex: 1 0 auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+/* =========================
+   Card Styles
+   ========================= */
+.card {
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+/* =========================
+   Bin Icon Styles
+   ========================= */
+.bin-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.bin-icon:hover {
+    transform: scale(1.1);
+}
+
+/* =========================
+   Bin Icon Colors
+   ========================= */
+.plastic {
+    color: #007bff;
+}
+
+.paper {
+    color: #28a745;
+}
+
+.medical {
+    color: #dc3545;
+}
+
+/* =========================
+   Detection Card Styles
+   ========================= */
+.detection-card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #6c5ce7, #a8a4e6);
+    color: white;
+}
+
+.detection-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
+}
+
+/* =========================
+   Bin Status Styles
+   ========================= */
+.bin-status {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.bin-status.full {
+    color: #dc3545;
+    animation: pulse 2s infinite;
+}
+
+.bin-status.empty {
+    color: #28a745;
+}
+
+/* =========================
+   Title and Miscellaneous
+   ========================= */
+.app-title {
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-message {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 500;
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+/* =========================
+   Responsive Styles
+   ========================= */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+
+    .card {
+        margin-bottom: 1rem;
+    }
+
+    .bin-icon {
+        font-size: 2rem;
+    }
+}

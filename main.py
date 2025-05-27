@@ -1,6 +1,9 @@
 from typing import Any
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
 import cv2
 import numpy as np
 from ultralytics import YOLO
@@ -12,30 +15,52 @@ from pydantic import BaseModel
 cv2.imdecode: Any
 cv2.IMREAD_COLOR: Any
 
+# Initialize FastAPI app
 app = FastAPI(title="STICY API")
 
-# Initialize the database
+# Initialize the SQLite database
 init_db()
 
-# Load the YOLO model
+# Load the YOLO model for waste detection
 model = YOLO('Models/best.pt')
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model.to(device)
 print(f"Model running on: {model.device}")
 
-# Class names
+# Waste class names (order must match model output)
 clsName = ['Metal', 'Glass', 'Plastic', 'Carton', 'Medical']
+
+# Set up Jinja2 templates for HTML rendering
+templates = Jinja2Templates(directory="templates")
+
+# Mount static files (CSS, JS, images)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    """
+    Render the main dashboard web page.
+    """
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 class BinStatus(BaseModel):
+    """
+    Pydantic model for updating bin status.
+    """
     bin_type: str
     is_full: bool
 
 
 @app.post("/detect-waste/")
 async def detect_waste(file: UploadFile = File(...)):
+    """
+    Detect waste type in an uploaded image using YOLO model.
+    Returns detected waste types and their confidence.
+    """
     try:
-        # Read the image file
+        # Read the uploaded image file
         contents = await file.read()
         nparr = np.frombuffer(contents, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -43,7 +68,7 @@ async def detect_waste(file: UploadFile = File(...)):
         if img is None:
             raise HTTPException(status_code=400, detail="Invalid image file")
 
-        # Perform detection
+        # Perform detection using YOLO
         results = model(img, stream=True, verbose=False)
 
         detections = []
@@ -59,7 +84,7 @@ async def detect_waste(file: UploadFile = File(...)):
                         "waste_type": waste_type,
                         "confidence": conf
                     })
-                    # Save to database
+                    # Save detection to database
                     save_detection(waste_type, conf)
 
         if not detections:
@@ -78,6 +103,9 @@ async def detect_waste(file: UploadFile = File(...)):
 
 @app.get("/detections/")
 async def get_detections():
+    """
+    Get all waste detection records from the database.
+    """
     try:
         detections = get_all_detections()
         return {
@@ -97,6 +125,9 @@ async def get_detections():
 
 @app.get("/last-detection/")
 async def get_last_detection_endpoint():
+    """
+    Get the most recent waste detection record.
+    """
     try:
         detection = get_last_detection()
         if not detection:
@@ -116,6 +147,9 @@ async def get_last_detection_endpoint():
 
 @app.post("/update-bin-status/")
 async def update_bin_status_endpoint(bin_status: BinStatus):
+    """
+    Update the status (full/available) of a specific waste bin.
+    """
     try:
         if bin_status.bin_type not in ['Plastic', 'Paper', 'Medical']:
             raise HTTPException(
@@ -130,6 +164,9 @@ async def update_bin_status_endpoint(bin_status: BinStatus):
 
 @app.get("/bins-status/")
 async def get_bins_status_endpoint():
+    """
+    Get the status of all waste bins.
+    """
     try:
         bins = get_bins_status()
         return {
@@ -146,8 +183,8 @@ async def get_bins_status_endpoint():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 if __name__ == "__main__":
+    # Run the FastAPI app with Uvicorn for local development
     import uvicorn
     uvicorn.run(
         app,
