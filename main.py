@@ -5,11 +5,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 import cv2
+import torch
 import numpy as np
 from ultralytics import YOLO
-from database import init_db, save_detection, get_all_detections, get_last_detection, update_bin_status, get_bins_status
-import torch
 from pydantic import BaseModel
+from database import init_db, save_detection, get_all_detections
+from database import get_last_detection, update_bin_status, get_bins_status
 
 # Type hints for OpenCV
 cv2.imdecode: Any
@@ -21,14 +22,33 @@ app = FastAPI(title="STICY API")
 # Initialize the SQLite database
 init_db()
 
-# Load the YOLO model for waste detection
-model = YOLO('Models/best.pt')
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-model.to(device)
-print(f"Model running on: {model.device}")
+# Model configuration
+MODEL_CONFIG = {
+    'default_model': 'Models/best.pt',
+    'default_confidence': 0.25
+}
 
-# Waste class names (order must match model output)
-clsName = ['Metal', 'Glass', 'Plastic', 'Carton', 'Medical']
+# Load the YOLO model for waste detection
+
+
+def load_model(model_path: str = None) -> YOLO:
+    """
+    Load YOLO model with error handling
+    """
+    try:
+        model_path = model_path or MODEL_CONFIG['default_model']
+        yolo_model = YOLO(model_path)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        yolo_model.to(device)
+        print(f"Model running on: {yolo_model.device}")
+        print(f"Model classes: {yolo_model.names}")
+        return yolo_model
+    except Exception as e:
+        raise Exception(f"Error loading model: {str(e)}")
+
+
+# Load the model
+model = load_model()
 
 # Set up Jinja2 templates for HTML rendering
 templates = Jinja2Templates(directory="templates")
@@ -54,10 +74,13 @@ class BinStatus(BaseModel):
 
 
 @app.post("/detect-waste/")
-async def detect_waste(file: UploadFile = File(...)):
+async def detect_waste(
+    file: UploadFile = File(...),
+    confidence: float = MODEL_CONFIG['default_confidence']
+):
     """
     Detect waste type in an uploaded image using YOLO model.
-    Returns detected waste types and their confidence.
+    Returns the highest confidence detection.
     """
     try:
         # Read the uploaded image file
@@ -69,32 +92,37 @@ async def detect_waste(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Invalid image file")
 
         # Perform detection using YOLO
-        results = model(img, stream=True, verbose=False)
+        results = model.predict(img, conf=confidence,
+                                stream=True, verbose=False)
 
-        detections = []
+        # Track the highest confidence detection
+        best_detection = None
+        highest_confidence = confidence
+
         for res in results:
             boxes = res.boxes
             for box in boxes:
                 cls = int(box.cls[0])
                 conf = float(box.conf[0])
 
-                if conf > 0.5:  # Only consider detections with confidence > 50%
-                    waste_type = clsName[cls]
-                    detections.append({
+                if conf > highest_confidence:
+                    waste_type = model.names[cls]
+                    best_detection = {
                         "waste_type": waste_type,
                         "confidence": conf
-                    })
+                    }
+                    highest_confidence = conf
                     # Save detection to database
                     save_detection(waste_type, conf)
 
-        if not detections:
+        if not best_detection:
             return JSONResponse(
                 content={"message": "No waste detected in the image"},
                 status_code=200
             )
 
         return {
-            "detections": detections
+            "detection": best_detection
         }
 
     except Exception as e:
